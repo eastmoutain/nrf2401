@@ -245,12 +245,13 @@ uint8_t nrf24_init(const uint8_t ce_pin, const uint8_t csn_pin)
     nrf->tx1_addr = tx_addr;
 
     spi_begin();
-    pinmode(nrf->ce_pin,OUTPUT);
+    pin_mode(nrf->ce_pin,OUTPUT);
     set_csn_pin_level(nrf->ce_pin, LOW);
     delay(100);
     
     // reset NRF_CONFIG and enable 16 bit CRC
     nrf24_write_register(NRF_CONFIG, 0b00001100);
+	
 
     // set retries
     nrf24_set_retries(5, 15);
