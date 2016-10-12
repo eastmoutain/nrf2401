@@ -20,10 +20,10 @@
 
 struct nrf24 rf24;
 
-static void nrf24_begin_transaction(struct nrf24 *rf24);
-static void nrf24_end_transaction(struct nrf24 *rf24);
-static uint8_t nrf24_flush_rx(struct nrf24 *rf24);
-static uint8_t nrf24_flush_tx(struct nrf24 *rf24);
+static void nrf24_begin_transaction(struct nrf24 *nrf24);
+static void nrf24_end_transaction(struct nrf24 *nrf24);
+static uint8_t nrf24_flush_rx(struct nrf24 *nrf24);
+static uint8_t nrf24_flush_tx(struct nrf24 *nrf24);
 
 
 
@@ -152,16 +152,16 @@ uint8_t nrf24_read_payload(struct nrf24 *nrf24, const uint8_t buf, uint8_t len)
 }
 
 
-void nrf24_set_channel(uint8_t channel)
+void nrf24_set_channel(struct nrf24 *nrf24, uint8_t channel)
 {
     const uint8_t max_channel = 125;
 
-    nrf24_write_register(RF_CH, nrf24_min(channel, max_channel));
+    nrf24_write_register(nrf24, RF_CH, nrf24_min(channel, max_channel));
 }
 
-void nrf24_get_channel(void)
+void nrf24_get_channel(struct nrf24 *nrf24)
 {
-    return nrf24_read_register(RF_CH);
+    return nrf24_read_register(nrf24, RF_CH);
 }
 
 void nrf24_set_payload_size(struct nrf24 *nrf24, uint8_t size)
@@ -174,21 +174,21 @@ uint8_t nrf24_get_payload_size(struct nrf24 *nrf24)
     return nrf24->payload_size;
 }
 
-void nrf24_disable_crc(void)
+void nrf24_disable_crc(struct nrf24 *nrf24)
 {
-    uint8_t disable = nrf24_read_register(NRF_CONFIG) & ~BV(EN_CRC);
-    nrf24_write_register(NRF_CONFIG, disable);
+    uint8_t disable = nrf24_read_register(nrf24, NRF_CONFIG) & ~BV(EN_CRC);
+    nrf24_write_register(nrf24, NRF_CONFIG, disable);
 }
 
-void nrf24_set_retries(uint8_t delay, uint8_t count)
+void nrf24_set_retries(struct nrf24 *nrf24,uint8_t delay, uint8_t count)
 {
-    nrf24_write_register(SETUP_RETR, (delay&0xf)<<ARD | (count&0xf)<<ARC)
+    nrf24_write_register(nrf24, SETUP_RETR, (delay&0xf)<<ARD | (count&0xf)<<ARC)
 }
 
 bool nrf24_set_data_rate(struct nrf24 *nrf24, rf24_datarate_e speed)
 {
     bool result = false;
-    uint8_t setup = nrf24_read_register(RF_SETUP);
+    uint8_t setup = nrf24_read_register(nrf24, RF_SETUP);
 
     setup &= ~(BV(RF_DR_LOW) | BV(RF_DR_HIGH));
 
@@ -208,9 +208,9 @@ bool nrf24_set_data_rate(struct nrf24 *nrf24, rf24_datarate_e speed)
         }
     }
 
-    nrf24_write_register(RF_SETUP, setup);
+    nrf24_write_register(nrf24, RF_SETUP, setup);
 
-    if (nrf24_read_register(RF_SETUP) == setup) {
+    if (nrf24_read_register(nrf24, RF_SETUP) == setup) {
         result = true;
     }
 
@@ -218,11 +218,11 @@ bool nrf24_set_data_rate(struct nrf24 *nrf24, rf24_datarate_e speed)
     
 }
 
-void nrf24_power_up(void)
+void nrf24_power_up(struct nrf24 *nrf24)
 {
-    uint8_t cfg = nrf24_read_register(NRF_CONFIG);
+    uint8_t cfg = nrf24_read_register(nrf24, NRF_CONFIG);
 
-    nrf24_write_register(NRF_CONFIG, cfg | BV(PWR_UP));
+    nrf24_write_register(nrf24, NRF_CONFIG, cfg | BV(PWR_UP));
     delay(5);
 }
 
@@ -248,7 +248,7 @@ uint8_t nrf24_init(const uint8_t ce_pin, const uint8_t csn_pin)
     delay(100);
     
     // reset NRF_CONFIG and enable 16 bit CRC
-    nrf24_write_register(NRF_CONFIG, 0b00001100);
+    nrf24_write_register(nrf24, NRF_CONFIG, 0b00001100);
 	
 
     // set retries
@@ -261,11 +261,11 @@ uint8_t nrf24_init(const uint8_t ce_pin, const uint8_t csn_pin)
 
     nrf24_set_data_rate(nrf24, RF24_1MBPS);
     // TODO: ommit toggle feature compared with RF24
-    nrf24_write_register(FEATURE, 0);
-    nrf24_write_register(DYNPD, 0);
+    nrf24_write_register(nrf24, FEATURE, 0);
+    nrf24_write_register(nrf24, DYNPD, 0);
     // Reset current status
     uint8_t status = BV(RX_DR) | BV(TX_DS) | BV(MAX_RT); 
-    nrf24_write_register(NRF_STATUS, status);
+    nrf24_write_register(nrf24, NRF_STATUS, status);
 
     // TODO: why it is 76
     nrf24_set_channel(76);
@@ -275,7 +275,7 @@ uint8_t nrf24_init(const uint8_t ce_pin, const uint8_t csn_pin)
 
     nrf24_power_up();
 
-    nrf24_write_register(NRF_CONFIG, read_register(NRF_CONFIG) & ~BV(PRIM_RX));
+    nrf24_write_register(nrf24, NRF_CONFIG, nrf24_read_register(nrf24,NRF_CONFIG) & ~BV(PRIM_RX));
 
     return (setup != 0 && setup != 0xff)
     

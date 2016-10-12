@@ -147,29 +147,29 @@ void set_csn_pin_level(uint8_t pin, bool level);
 void set_ce_pin_level(uint8_t pin, bool level);
 
 
-uint8_t nrf24_read_register(uint8_t reg);
+uint8_t nrf24_read_register(struct nrf24 *nrf24, uint8_t reg);
 
-uint8_t nrf24_write_register(uint8_t reg, uint8_t val);
+uint8_t nrf24_write_register(struct nrf24 *nrf24, uint8_t reg, uint8_t val);
 
 int8_t nrf24_wirte_payload(struct nrf24 *rf24, const void *buf, uint8_t len, uint8_t type);
 
 uint8_t nrf24_read_payload(struct nrf24 *nrf24, const uint8_t buf, uint8_t len);
 
-void nrf24_set_channel(uint8_t channel);
+void nrf24_set_channel(struct nrf24 *nrf24, uint8_t channel);
 
-void nrf24_get_channel(void);
+void nrf24_get_channel(struct nrf24 *nrf24);
 
 void nrf24_set_payload_size(struct nrf24 *nrf24, uint8_t size);
 
 uint8_t nrf24_get_payload_size(struct nrf24 *nrf24);
 
-void nrf24_disable_crc(void);
+void nrf24_disable_crc(struct nrf24 *nrf24);
 
 void nrf24_set_retries(uint8_t delay, uint8_t count);
 
 bool nrf24_set_data_rate(struct nrf24 *nrf24, rf24_datarate_e speed);
 
-void nrf24_power_up(void);
+void nrf24_power_up(struct nrf24 *nrf24);
 
 uint8_t nrf24_init(const uint8_t ce_pin, const uint8_t csn_pin);
 
