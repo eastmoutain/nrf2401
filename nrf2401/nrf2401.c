@@ -18,20 +18,13 @@
 
 #define BV(n) (1 << n)
 
-struct nrf24 {
-	uint8_t ce_pin;
-	uint8_t csn_pin;
-	uint16_t spi_speed;
-	uint8_t spi_rxbuf[32 + 1];
-	uint8_t spi_tx_buf[32 + 1];
-	uint8_t addr_width;
-	uint8_t *rx1_addr;
-	uint8_t *tx1_addr;
-    uint8_t payload_size;
-    uint32_t tx_rx_delay;
-};
-
 struct nrf24 rf24;
+
+static void nrf24_begin_transaction(uint8_t csn_pin);
+static void nrf24_end_transaction(uint8_t csn_pin);
+static uint8_t nrf24_flush_rx(struct nrf24 *rf24);
+static uint8_t nrf24_flush_tx(struct nrf24 *rf24);
+
 
 
 void set_csn_pin_level(uint8_t pin, bool level)
@@ -46,57 +39,57 @@ void set_ce_pin_level(uint8_t pin, bool level)
 	digital_write(pin, level);
 }
 
-uint8_t nrf24_flush_rx(void)
+static uint8_t nrf24_flush_rx(struct nrf24 *rf24)
 {
     uint8_t status;
 
-    nrf24_begin_transaction();
+    nrf24_begin_transaction(rf24->csn_pin);
     status = spi_transfer(FLUSH_RX);
-    nrf24_end_transaction();
+    nrf24_end_transaction(rf24->csn_pin);
 
     return status;
 }
 
-uint8_t nrf24_flush_tx(void)
+static uint8_t nrf24_flush_tx(struct nrf24 *rf24)
 {
     uint8_t status;
 
-    nrf24_begin_transaction();
+    nrf24_begin_transaction(rf24->csn_pin);
 
     status = spi_transfer(FLUSH_TX);
 
-    nrf24_end_transaction();
+    nrf24_end_transaction(rf24->csn_pin);
 
     return status;
 }
 
 
-void nrf24_begin_transaction()
+static void nrf24_begin_transaction(uint8_t csn_pin)
 {
 	spi_begin_transaction();
 
-	set_csn_pin_level(csn, LOW);
+	set_csn_pin_level(csn_pin, LOW);
 }
 
-void nrf24_end_transaction(void)
+static void nrf24_end_transaction(uint8_t csn_pin)
 {
 	set_csn_pin_level(csn_pin, HIGH);
 }
 
-uint8_t nrf24_read_register(uint8_t reg)
+uint8_t nrf24_read_register(struct nrf24 *rf24, uint8_t reg)
 {
 	uint8_t status;
 
-	nrf24_begin_transaction();
+	nrf24_begin_transaction(rf24->csn_pin);
 
 	status = spi_transfer(R_REGISTER | ( REGISTER_MASK & reg ));
 
-	nrf24_end_transaction();
+	nrf24_end_transaction(rf24->csn_pin);
 	
 	return status;
 }
 
-uint8_t nrf24_write_register(uint8_t reg, uint8_t val)
+uint8_t nrf24_write_register(struct nrf24 *rf24, uint8_t reg, uint8_t val)
 {
 	uint8_t status;
 	
@@ -104,26 +97,25 @@ uint8_t nrf24_write_register(uint8_t reg, uint8_t val)
 	printf("write reg [0x%x] with value [0x%x]\r\n", reg, val);
 #endif
 
-	nrf24_begin_transaction();
+	nrf24_begin_transaction(rf24->csn_pin);
 
 	status = spi_transfer(W_REGISTER | ( REGISTER_MASK & reg );
 	
-	nrf24_end_transaction();
+	nrf24_end_transaction(rf24->csn_pin);
 
 	return status;
 }
 
-u
 
-int8_t nrf24_wirte_payload(struct nrf24 *rf24, const void *buf, uint8_t len, uint8_t type)
+uint8_t nrf24_wirte_payload(struct nrf24 *rf24, const void *buf, uint8_t len, uint8_t type)
 {
     uint8_t status;
     uint8_t *p = buf;
 
-    len = rf24_min(len, rf24->payload_size);
+    len = nrf24_min(len, rf24->payload_size);
     uint8_t blank_len = rf24->payload_size - len;
     
-	nrf24_begin_transaction();
+	nrf24_begin_transaction(rf24->csn_pin);
 
     status = spi_transfer(type);
 
@@ -135,7 +127,7 @@ int8_t nrf24_wirte_payload(struct nrf24 *rf24, const void *buf, uint8_t len, uin
         spi_transfer(0);
     }
 
-    nrf24_end_transaction();
+    nrf24_end_transaction(rf24->csn_pin);
 }
 
 uint8_t nrf24_read_payload(struct nrf24 *nrf24, const uint8_t buf, uint8_t len)
@@ -143,16 +135,16 @@ uint8_t nrf24_read_payload(struct nrf24 *nrf24, const uint8_t buf, uint8_t len)
     uint8_t status;
     uint8_t *p = buf;
 
-    len = rf24_min(len, rf24->payload_size);
+    len = nrf24_min(len, rf24->payload_size);
 
-    nrf24_begin_transaction();
+    nrf24_begin_transaction(rf24->csn_pin);
 
     status = spi_transfer(R_RX_PAYLOAD);
     while (len--) {
         *p++ = spi_transfer(0xff);
     }
     
-    nrf24_end_transaction();
+    nrf24_end_transaction(rf24->csn_pin);
 
     return status;
 }
