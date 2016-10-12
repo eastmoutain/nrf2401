@@ -15,7 +15,6 @@ struct spi {
 	uint8_t clk;
 };
 
-
 void spi_begin(void);
 
 void spi_begin_transaction(uint8_t border, uint8_t dmode, uint8_t clk);

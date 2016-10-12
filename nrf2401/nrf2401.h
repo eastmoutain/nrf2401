@@ -127,6 +127,7 @@ typedef enum { RF24_1MBPS = 0, RF24_2MBPS, RF24_250KBPS } rf24_datarate_e;
  */
 typedef enum { RF24_CRC_DISABLED = 0, RF24_CRC_8, RF24_CRC_16 } rf24_crclength_e;
 
+#include "spi.h"
 struct nrf24 {
 	uint8_t ce_pin;
 	uint8_t csn_pin;
@@ -141,6 +142,7 @@ struct nrf24 {
 	struct spi spi;
 };
 
+#include <stdbool.h>
 
 void set_csn_pin_level(uint8_t pin, bool level);
 
@@ -151,13 +153,13 @@ uint8_t nrf24_read_register(struct nrf24 *nrf24, uint8_t reg);
 
 uint8_t nrf24_write_register(struct nrf24 *nrf24, uint8_t reg, uint8_t val);
 
-int8_t nrf24_wirte_payload(struct nrf24 *rf24, const void *buf, uint8_t len, uint8_t type);
+uint8_t nrf24_wirte_payload(struct nrf24 *rf24, void *buf, uint8_t len, uint8_t type);
 
-uint8_t nrf24_read_payload(struct nrf24 *nrf24, const uint8_t buf, uint8_t len);
+uint8_t nrf24_read_payload(struct nrf24 *nrf24, uint8_t *buf, uint8_t len);
 
 void nrf24_set_channel(struct nrf24 *nrf24, uint8_t channel);
 
-void nrf24_get_channel(struct nrf24 *nrf24);
+uint8_t nrf24_get_channel(struct nrf24 *nrf24);
 
 void nrf24_set_payload_size(struct nrf24 *nrf24, uint8_t size);
 
@@ -165,7 +167,7 @@ uint8_t nrf24_get_payload_size(struct nrf24 *nrf24);
 
 void nrf24_disable_crc(struct nrf24 *nrf24);
 
-void nrf24_set_retries(uint8_t delay, uint8_t count);
+void nrf24_set_retries(struct nrf24 *nrf24, uint8_t delay, uint8_t count);
 
 bool nrf24_set_data_rate(struct nrf24 *nrf24, rf24_datarate_e speed);
 

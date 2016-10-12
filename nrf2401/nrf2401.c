@@ -1,11 +1,14 @@
 
 #include <stdint.h>
-#include <unitstd.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <time.h>
 #include <sys/time.h>
+#include <stdbool.h>
+#include <string.h>
 #include "bcm2835.h"
 #include "spi.h"
+#include "nrf2401.h"
 
 
 #define nrf24_max(a,b) (a>b?a:b)
@@ -18,7 +21,7 @@
 
 #define BV(n) (1 << n)
 
-struct nrf24 rf24;
+struct nrf24 nrf24;
 
 static void nrf24_begin_transaction(struct nrf24 *nrf24);
 static void nrf24_end_transaction(struct nrf24 *nrf24);
@@ -94,14 +97,14 @@ uint8_t nrf24_read_register(struct nrf24 *nrf24, uint8_t reg)
 uint8_t nrf24_write_register(struct nrf24 *nrf24, uint8_t reg, uint8_t val)
 {
 	uint8_t status;
-	
+
 #if (DEBUG == ENABLE)
 	printf("write reg [0x%x] with value [0x%x]\r\n", reg, val);
 #endif
 
 	nrf24_begin_transaction(nrf24);
 
-	status = spi_transfer(W_REGISTER | ( REGISTER_MASK & reg );
+	status = spi_transfer(W_REGISTER | (REGISTER_MASK & reg));
 	
 	nrf24_end_transaction(nrf24);
 
@@ -109,15 +112,15 @@ uint8_t nrf24_write_register(struct nrf24 *nrf24, uint8_t reg, uint8_t val)
 }
 
 
-uint8_t nrf24_wirte_payload(struct nrf24 *nrf24, const void *buf, uint8_t len, uint8_t type)
+uint8_t nrf24_wirte_payload(struct nrf24 *nrf24, void *buf, uint8_t len, uint8_t type)
 {
     uint8_t status;
     uint8_t *p = buf;
 
     len = nrf24_min(len, nrf24->payload_size);
-    uint8_t blank_len = nnnrf24->payload_size - len;
+    uint8_t blank_len = nrf24->payload_size - len;
     
-	nrf24_begin_transaction(rf24);
+	nrf24_begin_transaction(nrf24);
 
     status = spi_transfer(type);
 
@@ -129,10 +132,12 @@ uint8_t nrf24_wirte_payload(struct nrf24 *nrf24, const void *buf, uint8_t len, u
         spi_transfer(0);
     }
 
-    nrf24_end_transaction(rf24);
+    nrf24_end_transaction(nrf24);
+
+    return status;
 }
 
-uint8_t nrf24_read_payload(struct nrf24 *nrf24, const uint8_t buf, uint8_t len)
+uint8_t nrf24_read_payload(struct nrf24 *nrf24, uint8_t *buf, uint8_t len)
 {
     uint8_t status;
     uint8_t *p = buf;
@@ -159,7 +164,7 @@ void nrf24_set_channel(struct nrf24 *nrf24, uint8_t channel)
     nrf24_write_register(nrf24, RF_CH, nrf24_min(channel, max_channel));
 }
 
-void nrf24_get_channel(struct nrf24 *nrf24)
+uint8_t nrf24_get_channel(struct nrf24 *nrf24)
 {
     return nrf24_read_register(nrf24, RF_CH);
 }
@@ -182,7 +187,8 @@ void nrf24_disable_crc(struct nrf24 *nrf24)
 
 void nrf24_set_retries(struct nrf24 *nrf24,uint8_t delay, uint8_t count)
 {
-    nrf24_write_register(nrf24, SETUP_RETR, (delay&0xf)<<ARD | (count&0xf)<<ARC)
+    nrf24_write_register(nrf24, SETUP_RETR, (delay&0xf)<<ARD | 
+                            (count&0xf)<<ARC);
 }
 
 bool nrf24_set_data_rate(struct nrf24 *nrf24, rf24_datarate_e speed)
@@ -228,9 +234,10 @@ void nrf24_power_up(struct nrf24 *nrf24)
 
 uint8_t nrf24_init(const uint8_t ce_pin, const uint8_t csn_pin)
 {
+    uint8_t setup = 0;
     struct nrf24 *nrf = &nrf24;
-    static const uint8_t rx_addr[] = {0x00, 0x01, 0x02, 0x03, 0x04};
-    static const uint8_t tx_addr[] = {0x00, 0x01, 0x02, 0x03, 0x04}
+    static uint8_t rx_addr[] = {0x00, 0x01, 0x02, 0x03, 0x04};
+    static uint8_t tx_addr[] = {0x00, 0x01, 0x02, 0x03, 0x04};
 
     memset(nrf, 0, sizeof(struct nrf24));
     nrf->ce_pin = ce_pin;
@@ -248,36 +255,36 @@ uint8_t nrf24_init(const uint8_t ce_pin, const uint8_t csn_pin)
     delay(100);
     
     // reset NRF_CONFIG and enable 16 bit CRC
-    nrf24_write_register(nrf24, NRF_CONFIG, 0b00001100);
+    nrf24_write_register(nrf, NRF_CONFIG, 0b00001100);
 	
 
     // set retries
-    nrf24_set_retries(5, 15);
+    nrf24_set_retries(nrf, 5, 15);
 
-    if (false == nrf24_set_data_rate(nrf24,RF24_250KBPS))
+    if (false == nrf24_set_data_rate(nrf,RF24_250KBPS))
     {
         // set data rate fail!!!
     }
 
-    nrf24_set_data_rate(nrf24, RF24_1MBPS);
+    nrf24_set_data_rate(nrf, RF24_1MBPS);
     // TODO: ommit toggle feature compared with RF24
-    nrf24_write_register(nrf24, FEATURE, 0);
-    nrf24_write_register(nrf24, DYNPD, 0);
+    nrf24_write_register(nrf, FEATURE, 0);
+    nrf24_write_register(nrf, DYNPD, 0);
     // Reset current status
     uint8_t status = BV(RX_DR) | BV(TX_DS) | BV(MAX_RT); 
-    nrf24_write_register(nrf24, NRF_STATUS, status);
+    nrf24_write_register(nrf, NRF_STATUS, status);
 
     // TODO: why it is 76
-    nrf24_set_channel(76);
+    nrf24_set_channel(nrf, 76);
 
-    nrf24_flush_rx();
-    nrf24_flush_tx();
+    nrf24_flush_rx(nrf);
+    nrf24_flush_tx(nrf);
 
-    nrf24_power_up();
+    nrf24_power_up(nrf);
 
-    nrf24_write_register(nrf24, NRF_CONFIG, nrf24_read_register(nrf24,NRF_CONFIG) & ~BV(PRIM_RX));
+    nrf24_write_register(nrf, NRF_CONFIG, nrf24_read_register(nrf,NRF_CONFIG) & ~BV(PRIM_RX));
 
-    return (setup != 0 && setup != 0xff)
+    return (setup != 0 && setup != 0xff);
     
 }
 
