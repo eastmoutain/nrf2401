@@ -138,6 +138,7 @@ struct nrf24 {
 	uint8_t *tx1_addr;
     uint8_t payload_size;
     uint32_t tx_rx_delay;
+	struct spi spi;
 };
 
 
@@ -160,7 +161,7 @@ void nrf24_get_channel(void);
 
 void nrf24_set_payload_size(struct nrf24 *nrf24, uint8_t size);
 
-uint8_t nrf24_set_payload_size(struct nrf24 *nrf24);
+uint8_t nrf24_get_payload_size(struct nrf24 *nrf24);
 
 void nrf24_disable_crc(void);
 

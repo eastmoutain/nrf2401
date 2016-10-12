@@ -20,8 +20,8 @@
 
 struct nrf24 rf24;
 
-static void nrf24_begin_transaction(uint8_t csn_pin);
-static void nrf24_end_transaction(uint8_t csn_pin);
+static void nrf24_begin_transaction(struct nrf24 *rf24);
+static void nrf24_end_transaction(struct nrf24 *rf24);
 static uint8_t nrf24_flush_rx(struct nrf24 *rf24);
 static uint8_t nrf24_flush_tx(struct nrf24 *rf24);
 
@@ -39,57 +39,59 @@ void set_ce_pin_level(uint8_t pin, bool level)
 	digital_write(pin, level);
 }
 
-static uint8_t nrf24_flush_rx(struct nrf24 *rf24)
+static uint8_t nrf24_flush_rx(struct nrf24 *nrf24)
 {
     uint8_t status;
 
-    nrf24_begin_transaction(rf24->csn_pin);
+    nrf24_begin_transaction(nrf24);
     status = spi_transfer(FLUSH_RX);
-    nrf24_end_transaction(rf24->csn_pin);
+    nrf24_end_transaction(nrf24);
 
     return status;
 }
 
-static uint8_t nrf24_flush_tx(struct nrf24 *rf24)
+static uint8_t nrf24_flush_tx(struct nrf24 *nrf24)
 {
     uint8_t status;
 
-    nrf24_begin_transaction(rf24->csn_pin);
+    nrf24_begin_transaction(nrf24);
 
     status = spi_transfer(FLUSH_TX);
 
-    nrf24_end_transaction(rf24->csn_pin);
+    nrf24_end_transaction(nrf24);
 
     return status;
 }
 
 
-static void nrf24_begin_transaction(uint8_t csn_pin)
+static void nrf24_begin_transaction(struct nrf24 *nrf24)
 {
-	spi_begin_transaction();
+	struct spi *spi = &nrf24->spi;
+	
+	spi_begin_transaction(spi->border, spi->bmode, spi->clk);
 
-	set_csn_pin_level(csn_pin, LOW);
+	set_csn_pin_level(nrf24->csn_pin, LOW);
 }
 
-static void nrf24_end_transaction(uint8_t csn_pin)
+static void nrf24_end_transaction(struct nrf24 *nrf24)
 {
-	set_csn_pin_level(csn_pin, HIGH);
+	set_csn_pin_level(nrf24->csn_pin, HIGH);
 }
 
-uint8_t nrf24_read_register(struct nrf24 *rf24, uint8_t reg)
+uint8_t nrf24_read_register(struct nrf24 *nrf24, uint8_t reg)
 {
 	uint8_t status;
 
-	nrf24_begin_transaction(rf24->csn_pin);
+	nrf24_begin_transaction(nrf24);
 
 	status = spi_transfer(R_REGISTER | ( REGISTER_MASK & reg ));
 
-	nrf24_end_transaction(rf24->csn_pin);
+	nrf24_end_transaction(nrf24);
 	
 	return status;
 }
 
-uint8_t nrf24_write_register(struct nrf24 *rf24, uint8_t reg, uint8_t val)
+uint8_t nrf24_write_register(struct nrf24 *nrf24, uint8_t reg, uint8_t val)
 {
 	uint8_t status;
 	
@@ -97,25 +99,25 @@ uint8_t nrf24_write_register(struct nrf24 *rf24, uint8_t reg, uint8_t val)
 	printf("write reg [0x%x] with value [0x%x]\r\n", reg, val);
 #endif
 
-	nrf24_begin_transaction(rf24->csn_pin);
+	nrf24_begin_transaction(nrf24);
 
 	status = spi_transfer(W_REGISTER | ( REGISTER_MASK & reg );
 	
-	nrf24_end_transaction(rf24->csn_pin);
+	nrf24_end_transaction(nrf24);
 
 	return status;
 }
 
 
-uint8_t nrf24_wirte_payload(struct nrf24 *rf24, const void *buf, uint8_t len, uint8_t type)
+uint8_t nrf24_wirte_payload(struct nrf24 *nrf24, const void *buf, uint8_t len, uint8_t type)
 {
     uint8_t status;
     uint8_t *p = buf;
 
-    len = nrf24_min(len, rf24->payload_size);
-    uint8_t blank_len = rf24->payload_size - len;
+    len = nrf24_min(len, nrf24->payload_size);
+    uint8_t blank_len = nnnrf24->payload_size - len;
     
-	nrf24_begin_transaction(rf24->csn_pin);
+	nrf24_begin_transaction(rf24);
 
     status = spi_transfer(type);
 
@@ -127,7 +129,7 @@ uint8_t nrf24_wirte_payload(struct nrf24 *rf24, const void *buf, uint8_t len, ui
         spi_transfer(0);
     }
 
-    nrf24_end_transaction(rf24->csn_pin);
+    nrf24_end_transaction(rf24);
 }
 
 uint8_t nrf24_read_payload(struct nrf24 *nrf24, const uint8_t buf, uint8_t len)
@@ -135,16 +137,16 @@ uint8_t nrf24_read_payload(struct nrf24 *nrf24, const uint8_t buf, uint8_t len)
     uint8_t status;
     uint8_t *p = buf;
 
-    len = nrf24_min(len, rf24->payload_size);
+    len = nrf24_min(len, nrf24->payload_size);
 
-    nrf24_begin_transaction(rf24->csn_pin);
+    nrf24_begin_transaction(nrf24);
 
     status = spi_transfer(R_RX_PAYLOAD);
     while (len--) {
         *p++ = spi_transfer(0xff);
     }
     
-    nrf24_end_transaction(rf24->csn_pin);
+    nrf24_end_transaction(nrf24);
 
     return status;
 }
@@ -167,7 +169,7 @@ void nrf24_set_payload_size(struct nrf24 *nrf24, uint8_t size)
     nrf24->payload_size = size;
 }
 
-uint8_t nrf24_set_payload_size(struct nrf24 *nrf24)
+uint8_t nrf24_get_payload_size(struct nrf24 *nrf24)
 {
     return nrf24->payload_size;
 }
@@ -235,6 +237,10 @@ uint8_t nrf24_init(const uint8_t ce_pin, const uint8_t csn_pin)
     nrf->csn_pin = csn_pin;
     nrf->rx1_addr = rx_addr;
     nrf->tx1_addr = tx_addr;
+
+	nrf->spi.clk = BCM2835_SPI_SPEED_8MHZ;
+	nrf->spi.border = MSBFIRST;
+	nrf->spi.bmode = SPI_MODE0;
 
     spi_begin();
     pin_mode(nrf->ce_pin,OUTPUT);

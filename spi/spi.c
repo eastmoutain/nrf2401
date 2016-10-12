@@ -5,6 +5,10 @@
 
 static pthread_mutex_t spi_lock;
 
+
+
+
+
 void spi_begin(void)
 {
 	if (!bcm2835_init()) {
@@ -29,7 +33,7 @@ void spi_end_transaction(void)
 	// TODO: Release lock
 }
 
-void spi_transfer(uint8_t data)
+uint8_t spi_transfer(uint8_t data)
 {
 	uint8_t ret = bcm2835_spi_transfer(data);
 	return ret;
